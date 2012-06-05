@@ -4,7 +4,7 @@ use warnings;
 use Test::More tests => 24;
 use FindBin;
 
-use lib $FindBin::Bin.'/lib'; 
+use lib $FindBin::Bin. '/lib';
 
 use_ok 'MyObject';
 
@@ -24,15 +24,14 @@ isa_ok $init, 'Initialize';
 
 is $init->foo(), 51, "foo has been set by initialize";
 
-$init = Initialize->new(bar => 123);
+$init = Initialize->new( bar => 123 );
 is $init->bar(), 123, "bar set by new";
 
-$init = Initialize->new(rab => 321);
+$init = Initialize->new( rab => 321 );
 is $init->bar(), 321, "bar set by init";
 
 $init = Initialize->new();
 is $init->bar(), 1031, 'from initialize hook';
-
 
 use_ok 'Hooks';
 

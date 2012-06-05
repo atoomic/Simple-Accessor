@@ -76,7 +76,7 @@ sub import {
     my $from = caller();
 
     _add_new($from);
-    _add_accessors(to => $from, attributes => \@attr);
+    _add_accessors( to => $from, attributes => \@attr );
 }
 
 sub _add_new {
@@ -91,7 +91,7 @@ sub _add_new {
             my ( $class, %opts ) = @_;
 
             my $self = bless {}, $class;
-            
+
             # set values if attributes exist
             map {
                 eval { $self->$_( $opts{$_} ) }
@@ -141,12 +141,14 @@ sub _add_accessors {
                         return unless $self->$sub($v);
                     }
                 }
-            } elsif ( !defined $self->{$att} ) {
+            }
+            elsif ( !defined $self->{$att} ) {
+
                 # try to initialize the value
-                    my $sub = '_' . 'initialize'. '_' . $att;
-                    if ( defined &{ $opts{to} . '::' . $sub } ) {
-                         $self->{$att} = $self->$sub();
-                    }                
+                my $sub = '_' . 'initialize' . '_' . $att;
+                if ( defined &{ $opts{to} . '::' . $sub } ) {
+                    $self->{$att} = $self->$sub();
+                }
             }
 
             return $self->{$att};
