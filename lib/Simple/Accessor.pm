@@ -5,42 +5,67 @@ use warnings;
 # ABSTRACT: a light and simple way to provide accessor in perl
 
 =head1 NAME
-Simple::Accessor - light and simple accessor
+Simple::Accessor - very simple, light and powerful accessor
 
 =head1 DESCRIPTION
 
 Simple::Accessor provides a simple object layer without any dependency.
 It can be used where other ORM could be considered too heavy.
+But it has also the main advantage to only need one single line of code.
+
+It can be easily used in scripts...
 
 =head1 Usage
 
+Create a package and just call Simple::Accessor.
+The new method will be imported for you, and all accessors will be directly
+accessible.
+
     package MyClass;
-    # that s all what you need ! no more line needed
+    # that s all what you need ! no more line required
     use Simple::Accessor qw{foo bar cherry apple};
+
+You can now call 'new' on your class, and create objects using these attributes
     
     package main;    
-    # you can now create object with these attributes    
-    my $o = MyClass->new(bar => 42);
-    is $o->bar(), 42;
+    use MyClass;
+
+    my $o = MyClass->new() 
+        or MyClass->new(bar => 42) 
+        or MyClass->new(apple => 'fruit', cherry => 'fruit', banana => 'yummy');
+
+You can get / set any value using the accessor
     
-    # you can also get / set any value
+    is $o->bar(), 42;
     $o->bar(51);
     is $o->bar(), 51;
     
-    # you can provide your own init method that will be call by new
+You can provide your own init method that will be call by new with default args.
+This is optional.
+
+    package MyClass;
+
     sub initialize {
         my ($self, %opts) = @_;
         
         $self->foo(12345);
     }
 
-    # you can use individual initializers
+You can also provide individual initializers 
+
     sub _initialize_bar {
         # will be used if no value has been provided for bar
-        1031
+        1031;
     }
 
-    # you can even use a basic hook system
+    sub _initialize_cherry {
+        'red';
+    }
+
+You can even use a very basic but useful hook system.
+Any false value return by before or validate, will stop the setting process.
+Be careful with the after method, as there is no protection against infinite loop.
+
     sub _before_foo {
         my ($self, $v) = @_;
     
@@ -63,10 +88,9 @@ It can be used where other ORM could be considered too heavy.
         $self->apple($self->cherry());
     }
     
-=head2 Implement your own logic
-
-
 =head1 METHODS
+
+None. The only public method provided is the classical import.
 
 =cut
 
@@ -104,16 +128,6 @@ sub _add_new {
             return $self;
         };
     }
-}
-
-sub new {
-    my ( $class, %opts ) = @_;
-
-    my $self = bless {}, __PACKAGE__;
-
-    $self->_init(%opts);
-
-    return $self;
 }
 
 sub _add_accessors {
@@ -158,5 +172,11 @@ sub _add_accessors {
 }
 
 1;
+
+=head1 CONTRIBUTE
+
+You can contribute to this project on github https://github.com/atoomic/Simple-Accessor
+
+=cut
 
 __END__
