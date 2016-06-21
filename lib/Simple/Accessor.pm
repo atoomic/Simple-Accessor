@@ -157,11 +157,13 @@ sub _add_accessors {
                 }
             }
             elsif ( !defined $self->{$att} ) {
-
-                # try to initialize the value
-                my $sub = '_' . 'initialize' . '_' . $att;
-                if ( defined &{ $opts{to} . '::' . $sub } ) {
-                    $self->{$att} = $self->$sub();
+                # try to initialize the value (try first with build)
+                #   initialize is here for backward compatibility with older versions
+                foreach my $builder ( qw{build initialize} ) {
+                    my $sub = '_' . $builder . '_' . $att;
+                    if ( defined &{ $opts{to} . '::' . $sub } ) {
+                        return $self->{$att} = $self->$sub();
+                    }
                 }
             }
 
