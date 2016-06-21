@@ -22,6 +22,7 @@ The new method will be imported for you, and all accessors will be directly
 accessible.
 
     package MyClass;
+
     # that s all what you need ! no more line required
     use Simple::Accessor qw{foo bar cherry apple};
 
@@ -45,20 +46,20 @@ This is optional.
 
     package MyClass;
 
-    sub initialize {
+    sub build { # previously known as initialize
         my ($self, %opts) = @_;
         
         $self->foo(12345);
     }
 
-You can also provide individual initializers 
+You can also provide individual builders / initializers 
 
-    sub _initialize_bar {
+    sub _build_bar { # previously known as _initialize_bar
         # will be used if no value has been provided for bar
         1031;
     }
 
-    sub _initialize_cherry {
+    sub _build_cherry {
         'red';
     }
 
@@ -107,7 +108,6 @@ sub _add_new {
     my $class = shift;
     return unless $class;
 
-    my $init = 'initialize';
     my $new  = $class . '::new';
     {
         no strict 'refs';
@@ -121,8 +121,10 @@ sub _add_new {
                 eval { $self->$_( $opts{$_} ) }
             } keys %opts;
 
-            if ( defined &{ $class . '::' . $init } ) {
-                return unless $self->$init(%opts);
+            foreach my $init ( 'build', 'initialize' ) {
+                if ( defined &{ $class . '::' . $init } ) {
+                    return unless $self->$init(%opts);
+                }
             }
 
             return $self;
