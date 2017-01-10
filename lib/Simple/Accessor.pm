@@ -135,17 +135,17 @@ sub _add_new {
                 eval { $self->$_( $opts{$_} ) }
             } keys %opts;
 
-            if ( defined &{ $class . '::_before_build' } ) {
+            if ( $self->can( '_before_build') ) {
                 $self->_before_build( %opts );
             }
 
             foreach my $init ( 'build', 'initialize' ) {
-                if ( defined &{ $class . '::' . $init } ) {
+                if ( $self->can( $init ) ) {
                     return unless $self->$init(%opts);
                 }
             }
 
-            if ( defined &{ $class . '::_after_build' } ) {
+            if ( $self->can( '_after_build') ) {
                 $self->_after_build( %opts );
             }
 
@@ -175,7 +175,7 @@ sub _add_accessors {
                         next;
                     }
                     my $sub = '_' . $_ . '_' . $att;
-                    if ( defined &{ $opts{to} . '::' . $sub } ) {
+                    if ( $self->can( $sub ) ) {
                         return unless $self->$sub($v);
                     }
                 }
@@ -185,7 +185,7 @@ sub _add_accessors {
                 #   initialize is here for backward compatibility with older versions
                 foreach my $builder ( qw{build initialize} ) {
                     my $sub = '_' . $builder . '_' . $att;
-                    if ( defined &{ $opts{to} . '::' . $sub } ) {
+                    if ( $self->can( $sub ) ) {
                         return $self->{$att} = $self->$sub();
                     }
                 }
