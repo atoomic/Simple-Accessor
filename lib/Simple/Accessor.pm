@@ -53,6 +53,19 @@ This is optional.
         $self->foo(12345);
     }
 
+You can also control the object after or before its creation using
+
+    sub _before_build {
+        my ($self, %opts) = @_;
+        ...
+    }
+
+    sub _after_build {
+        my ($self, %opts) = @_;
+        ...
+        bless $self, 'Basket';
+    }
+
 You can also provide individual builders / initializers 
 
     sub _build_bar { # previously known as _initialize_bar
@@ -122,10 +135,18 @@ sub _add_new {
                 eval { $self->$_( $opts{$_} ) }
             } keys %opts;
 
+            if ( defined &{ $class . '::_before_build' } ) {
+                $self->_before_build( %opts );
+            }
+
             foreach my $init ( 'build', 'initialize' ) {
                 if ( defined &{ $class . '::' . $init } ) {
                     return unless $self->$init(%opts);
                 }
+            }
+
+            if ( defined &{ $class . '::_after_build' } ) {
+                $self->_after_build( %opts );
             }
 
             return $self;
