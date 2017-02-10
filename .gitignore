@@ -2,3 +2,6 @@ Simple-Accessor*
 .build
 .DS_Store
 logs
+local
+cpanfile.snapshot
+result.xml
