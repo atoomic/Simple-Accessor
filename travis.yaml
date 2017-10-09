@@ -1,0 +1,30 @@
+language: "perl"
+perl:
+  - "5.26"
+  - "5.24"
+  - "5.22"
+  - "5.20"
+  - "5.18"
+  - "5.16"
+  - "5.14"
+  - "5.12"
+
+before_install:
+    - sudo apt-get update -q
+
+install:
+    - dzil authordeps | cpanm
+    - dzil listdeps | cpanm
+    - cpanm -v --installdeps --notest .
+
+script: "dzil test"
+# branches:
+#   only:
+#     - master
+notifications:
+  recipients:
+    - atoomic@cpan.org
+  email:
+    on_success: change
+    on_failure: always
+#env:
