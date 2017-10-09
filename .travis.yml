@@ -13,8 +13,8 @@ before_install:
     - sudo apt-get update -q
 
 install:
-    - dzil authordeps | cpanm
-    - dzil listdeps | cpanm
+    - dzil authordeps | cpanm -n ||:
+    - dzil listdeps | cpanm -n ||:
     - cpanm -n -q --skip-satisfied --installdeps .
 
 script: "dzil test"
