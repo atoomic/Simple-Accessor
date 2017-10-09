@@ -15,7 +15,7 @@ before_install:
 install:
     - dzil authordeps | cpanm
     - dzil listdeps | cpanm
-    - cpanm -v --installdeps --notest .
+    - cpanm -n -q --skip-satisfied --installdeps .
 
 script: "dzil test"
 # branches:
