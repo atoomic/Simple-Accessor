@@ -28,20 +28,20 @@ accessible.
     use Simple::Accessor qw{foo bar cherry apple};
 
 You can now call 'new' on your class, and create objects using these attributes
-    
-    package main;    
+
+    package main;
     use MyClass;
 
-    my $o = MyClass->new() 
-        or MyClass->new(bar => 42) 
+    my $o = MyClass->new()
+        or MyClass->new(bar => 42)
         or MyClass->new(apple => 'fruit', cherry => 'fruit', banana => 'yummy');
 
 You can get / set any value using the accessor
-    
+
     is $o->bar(), 42;
     $o->bar(51);
     is $o->bar(), 51;
-    
+
 You can provide your own init method that will be call by new with default args.
 This is optional.
 
@@ -49,7 +49,7 @@ This is optional.
 
     sub build { # previously known as initialize
         my ($self, %opts) = @_;
-        
+
         $self->foo(12345);
     }
 
@@ -66,7 +66,7 @@ You can also control the object after or before its creation using
         bless $self, 'Basket';
     }
 
-You can also provide individual builders / initializers 
+You can also provide individual builders / initializers
 
     sub _build_bar { # previously known as _initialize_bar
         # will be used if no value has been provided for bar
@@ -83,7 +83,7 @@ Be careful with the after method, as there is no protection against infinite loo
 
     sub _before_foo {
         my ($self, $v) = @_;
-    
+
         # do whatever you want with $v
         return 1 or 0;
     }
@@ -93,16 +93,16 @@ Be careful with the after method, as there is no protection against infinite loo
         # invalid value ( will not be set )
         return 0 if ( $v == 42);
         # valid value
-        return 1;        
+        return 1;
     }
 
     sub _after_cherry {
         my ($self) = @_;
-        
+
         # use the set value for extra operations
         $self->apple($self->cherry());
     }
-    
+
 =head1 METHODS
 
 None. The only public method provided is the classical import.
