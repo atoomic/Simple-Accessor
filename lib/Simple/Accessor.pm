@@ -1,4 +1,5 @@
 package Simple::Accessor;
+
 use strict;
 use warnings;
 
