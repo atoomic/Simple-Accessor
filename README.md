@@ -4,10 +4,6 @@
 # NAME
 Simple::Accessor - very simple, light and powerful accessor
 
-# VERSION
-
-version 1.11
-
 # DESCRIPTION
 
 Simple::Accessor provides a simple object layer without any dependency.
