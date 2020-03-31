@@ -4,6 +4,8 @@ use warnings;
 
 # ABSTRACT: a light and simple way to provide accessor in perl
 
+# VERSION
+
 =head1 NAME
 Simple::Accessor - very simple, light and powerful accessor
 
