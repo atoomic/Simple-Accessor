@@ -4,6 +4,32 @@
 # NAME
 Simple::Accessor - very simple, light and powerful accessor
 
+# SYNOPSIS
+
+```perl
+package Role::Color;
+use Simple::Accessor qw{color};
+
+sub _build_color { 'red' } # default color
+
+package Car;
+
+# that s all what you need ! no more line required
+use Simple::Accessor qw{brand hp};
+
+with 'Role::Color';
+
+sub _build_hp { 2 }
+sub _build_brand { 'unknown' }
+
+package main;
+
+my $c = Car->new( brand => 'zebra' );
+
+is $c->brand, 'zebra';
+is $c->color, 'red';
+```
+
 # DESCRIPTION
 
 Simple::Accessor provides a simple object layer without any dependency.

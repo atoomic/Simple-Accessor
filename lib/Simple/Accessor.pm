@@ -1,5 +1,4 @@
 package Simple::Accessor;
-
 use strict;
 use warnings;
 
@@ -7,6 +6,30 @@ use warnings;
 
 =head1 NAME
 Simple::Accessor - very simple, light and powerful accessor
+
+=head1 SYNOPSIS
+
+    package Role::Color;
+    use Simple::Accessor qw{color};
+
+    sub _build_color { 'red' } # default color
+
+    package Car;
+
+    # that s all what you need ! no more line required
+    use Simple::Accessor qw{brand hp};
+
+    with 'Role::Color';
+
+    sub _build_hp { 2 }
+    sub _build_brand { 'unknown' }
+
+    package main;
+
+    my $c = Car->new( brand => 'zebra' );
+
+    is $c->brand, 'zebra';
+    is $c->color, 'red';
 
 =head1 DESCRIPTION
 
@@ -109,13 +132,49 @@ None. The only public method provided is the classical import.
 
 =cut
 
+my $INFO;
+
 sub import {
     my ( $class, @attr ) = @_;
 
     my $from = caller();
 
+    $INFO = {} unless defined $INFO;
+    $INFO->{$from} = {} unless defined $INFO->{$from};
+    $INFO->{$from}->{'attributes'} = [ @attr ];
+
+    _add_with($from);
     _add_new($from);
     _add_accessors( to => $from, attributes => \@attr );
+
+    return;
+}
+
+sub _add_with {
+    my $class = shift;
+    return unless $class;
+
+    my $with  = $class . '::with';
+    {
+        no strict 'refs';
+        *$with = sub {
+            my ( @what ) = @_;
+
+            $INFO->{$class}->{'with'} = [] unless $INFO->{$class}->{'with'};
+            push @{$INFO->{$class}->{'with'}}, @what;
+
+            foreach my $module ( @what ) {
+                eval qq[require $module; 1] or die $@;
+                _add_accessors(
+                    to => $class,
+                    attributes => $INFO->{$module}->{attributes},
+                    from_role => $module
+                );
+            }
+
+            return;
+        };
+    }
 }
 
 sub _add_new {
@@ -157,12 +216,16 @@ sub _add_new {
 sub _add_accessors {
     my (%opts) = @_;
 
-    return unless $opts{to};
+    return unless my $class = $opts{to};
     my @attributes = @{ $opts{attributes} };
     return unless @attributes;
 
+    my $from_role = $opts{from_role};
+
     foreach my $att (@attributes) {
-        my $accessor = $opts{to} . "::$att";
+        my $accessor = $class . "::" . $att;
+
+        die "$class: attribute '$att' is already defined." if $class->can($att);
 
         # allow symbolic refs to typeglob
         no strict 'refs';
@@ -177,6 +240,10 @@ sub _add_accessors {
                     my $sub = '_' . $_ . '_' . $att;
                     if ( $self->can( $sub ) ) {
                         return unless $self->$sub($v);
+                    } elsif ( $from_role  ) {
+                        if ( my $code = $from_role->can( $sub ) ) {
+                            return unless $code->( $self, $v );
+                        }
                     }
                 }
             }
@@ -187,6 +254,10 @@ sub _add_accessors {
                     my $sub = '_' . $builder . '_' . $att;
                     if ( $self->can( $sub ) ) {
                         return $self->{$att} = $self->$sub();
+                    } elsif ( $from_role  ) {
+                        if ( my $code = $from_role->can( $sub ) ) {
+                            return $self->{$att} = $code->( $self );
+                        }
                     }
                 }
             }
