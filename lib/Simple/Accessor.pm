@@ -169,6 +169,8 @@ sub _add_with {
             foreach my $module ( @what ) {
                 die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
                 eval qq[require $module; 1] or die $@;
+                die "$module is not a Simple::Accessor role"
+                    unless $INFO->{$module} && $INFO->{$module}->{attributes};
                 _add_accessors(
                     to => $class,
                     attributes => $INFO->{$module}->{attributes},
@@ -229,7 +231,11 @@ sub _add_accessors {
     foreach my $att (@attributes) {
         my $accessor = $class . "::" . $att;
 
-        die "$class: attribute '$att' is already defined." if $class->can($att);
+        if ( $class->can($att) ) {
+            # skip silently when composing roles (duplicates are OK)
+            next if $from_role;
+            die "$class: attribute '$att' is already defined.";
+        }
 
         # allow symbolic refs to typeglob
         no strict 'refs';
@@ -269,7 +275,6 @@ sub _add_accessors {
             return $self->{$att};
         };
     }
-    @attributes = ();
 }
 
 1;
