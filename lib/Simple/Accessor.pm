@@ -167,6 +167,7 @@ sub _add_with {
             push @{$INFO->{$class}->{'with'}}, @what;
 
             foreach my $module ( @what ) {
+                die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
                 eval qq[require $module; 1] or die $@;
                 _add_accessors(
                     to => $class,
