@@ -192,13 +192,13 @@ sub _add_new {
 
             my $self = bless {}, $class;
 
-            # set values if attributes exist
-            map {
-                eval { $self->$_( $opts{$_} ) }
-            } keys %opts;
-
             if ( $self->can( '_before_build') ) {
                 $self->_before_build( %opts );
+            }
+
+            # set values for known attributes
+            foreach my $attr ( keys %opts ) {
+                $self->$attr( $opts{$attr} ) if $self->can($attr);
             }
 
             foreach my $init ( 'build', 'initialize' ) {
@@ -250,7 +250,7 @@ sub _add_accessors {
                     }
                 }
             }
-            elsif ( !defined $self->{$att} ) {
+            elsif ( !exists $self->{$att} ) {
                 # try to initialize the value (try first with build)
                 #   initialize is here for backward compatibility with older versions
                 foreach my $builder ( qw{build initialize} ) {
