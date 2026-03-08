@@ -272,7 +272,7 @@ sub _add_accessors {
         no strict 'refs';
         *$accessor = sub {
             my ( $self, $v ) = @_;
-            if ( defined $v ) {
+            if ( @_ > 1 ) {
                 # re-entrancy guard: skip _after_* if we're already setting this attribute
                 my $is_reentrant = $self->{__sa_setting}{$att};
                 local $self->{__sa_setting}{$att} = 1;
