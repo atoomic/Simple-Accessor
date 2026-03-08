@@ -103,6 +103,19 @@ You can also provide individual builders / initializers
         'red';
     }
 
+You can enable strict constructor mode to catch typos in attribute names:
+
+    package MyClass;
+    use Simple::Accessor qw{name age};
+
+    sub _strict_constructor { 1 }
+
+    package main;
+    MyClass->new(nmae => 'oops');
+    # dies: "MyClass->new(): unknown attribute(s): nmae"
+
+This is opt-in and off by default for backward compatibility.
+
 You can even use a very basic but useful hook system.
 Any false value return by before or validate, will stop the setting process.
 Be careful with the after method, as there is no protection against infinite loop.
@@ -200,8 +213,19 @@ sub _add_new {
             }
 
             # set values for known attributes (in declaration order)
-            foreach my $attr ( @{$INFO->{$class}{attributes} || []} ) {
+            my $attrs = $INFO->{$class}{attributes} || [];
+            foreach my $attr ( @{$attrs} ) {
                 $self->$attr( $opts{$attr} ) if exists $opts{$attr};
+            }
+
+            # strict constructor: die on unknown attributes
+            if ( $self->can('_strict_constructor') && $self->_strict_constructor() ) {
+                my %known = map { $_ => 1 } @{$attrs};
+                my @unknown = sort grep { !$known{$_} } keys %opts;
+                if (@unknown) {
+                    die "$class\->new(): unknown attribute(s): "
+                        . join(', ', @unknown) . "\n";
+                }
             }
 
             foreach my $init ( 'build', 'initialize' ) {
