@@ -199,9 +199,9 @@ sub _add_new {
                 $self->_before_build( %opts );
             }
 
-            # set values for known attributes
-            foreach my $attr ( keys %opts ) {
-                $self->$attr( $opts{$attr} ) if $self->can($attr);
+            # set values for known attributes (in declaration order)
+            foreach my $attr ( @{$INFO->{$class}{attributes} || []} ) {
+                $self->$attr( $opts{$attr} ) if exists $opts{$attr};
             }
 
             foreach my $init ( 'build', 'initialize' ) {
@@ -235,6 +235,11 @@ sub _add_accessors {
             # skip silently when composing roles (duplicates are OK)
             next if $from_role;
             die "$class: attribute '$att' is already defined.";
+        }
+
+        # track role attributes in the class's attribute list
+        if ( $from_role ) {
+            push @{$INFO->{$class}{attributes}}, $att;
         }
 
         # allow symbolic refs to typeglob
