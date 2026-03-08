@@ -103,24 +103,9 @@ You can also provide individual builders / initializers
         'red';
     }
 
-You can enable strict constructor mode to catch typos in attribute names:
-
-    package MyClass;
-    use Simple::Accessor qw{name age};
-
-    sub _strict_constructor { 1 }
-
-    package main;
-    MyClass->new(nmae => 'oops');
-    # dies: "MyClass->new(): unknown attribute(s): nmae"
-
-This is opt-in and off by default for backward compatibility.
-
 You can even use a very basic but useful hook system.
 Any false value return by before or validate, will stop the setting process.
-The after hooks include a re-entrancy guard: if an C<_after_*> hook triggers
-a setter that would re-enter the same attribute, the nested C<_after_*> call
-is skipped to prevent infinite recursion.
+Be careful with the after method, as there is no protection against infinite loop.
 
     sub _before_foo {
         my ($self, $v) = @_;
@@ -214,20 +199,9 @@ sub _add_new {
                 $self->_before_build( %opts );
             }
 
-            # set values for known attributes (in declaration order)
-            my $attrs = $INFO->{$class}{attributes} || [];
-            foreach my $attr ( @{$attrs} ) {
-                $self->$attr( $opts{$attr} ) if exists $opts{$attr};
-            }
-
-            # strict constructor: die on unknown attributes
-            if ( $self->can('_strict_constructor') && $self->_strict_constructor() ) {
-                my %known = map { $_ => 1 } @{$attrs};
-                my @unknown = sort grep { !$known{$_} } keys %opts;
-                if (@unknown) {
-                    die "$class\->new(): unknown attribute(s): "
-                        . join(', ', @unknown) . "\n";
-                }
+            # set values for known attributes
+            foreach my $attr ( keys %opts ) {
+                $self->$attr( $opts{$attr} ) if $self->can($attr);
             }
 
             foreach my $init ( 'build', 'initialize' ) {
@@ -263,26 +237,14 @@ sub _add_accessors {
             die "$class: attribute '$att' is already defined.";
         }
 
-        # track role attributes in the class's attribute list
-        if ( $from_role ) {
-            push @{$INFO->{$class}{attributes}}, $att;
-        }
-
         # allow symbolic refs to typeglob
         no strict 'refs';
         *$accessor = sub {
             my ( $self, $v ) = @_;
-            if ( @_ > 1 ) {
-                # re-entrancy guard: skip _after_* if we're already setting this attribute
-                my $is_reentrant = $self->{__sa_setting}{$att};
-                local $self->{__sa_setting}{$att} = 1;
-
+            if ( defined $v ) {
                 foreach (qw{before validate set after}) {
                     if ( $_ eq 'set' ) {
                         $self->{$att} = $v;
-                        next;
-                    }
-                    if ( $_ eq 'after' && $is_reentrant ) {
                         next;
                     }
                     my $sub = '_' . $_ . '_' . $att;
