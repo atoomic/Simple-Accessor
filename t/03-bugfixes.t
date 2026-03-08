@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 25;
 
 # --- Test packages defined inline ---
 
@@ -163,3 +163,32 @@ is $fb3->zero_val, 0, 'zero_val stays 0 on subsequent access';
     ok !exists $obj->{unknown}, 'unknown key not stored on object';
     is $obj->first, 1, 'declared attributes still set correctly';
 }
+
+# === Bug 5: Setter gate allows explicit undef assignment ===
+{
+    package UndefSetter;
+    use Simple::Accessor qw{name status};
+
+    sub _build_name { 'default' }
+}
+
+my $us = UndefSetter->new(name => 'Alice');
+is $us->name, 'Alice', 'attribute set via new()';
+
+$us->name(undef);
+ok !defined($us->name), 'attribute can be explicitly set to undef';
+
+my $us2 = UndefSetter->new(name => undef);
+ok !defined($us2->name), 'attribute can be set to undef via new()';
+
+# Verify that builder still fires when key does not exist
+my $us3 = UndefSetter->new();
+is $us3->name, 'default', 'builder fires when attribute not passed to new()';
+
+# Verify that once set to undef, builder does NOT re-fire
+$us3->name(undef);
+ok !defined($us3->name), 'after explicit undef, builder does not re-fire';
+
+# Verify normal setter still works after undef
+$us3->name('Bob');
+is $us3->name, 'Bob', 'attribute can be set back to a value after undef';
