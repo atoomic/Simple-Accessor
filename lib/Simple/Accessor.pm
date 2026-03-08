@@ -105,7 +105,9 @@ You can also provide individual builders / initializers
 
 You can even use a very basic but useful hook system.
 Any false value return by before or validate, will stop the setting process.
-Be careful with the after method, as there is no protection against infinite loop.
+The after hooks include a re-entrancy guard: if an C<_after_*> hook triggers
+a setter that would re-enter the same attribute, the nested C<_after_*> call
+is skipped to prevent infinite recursion.
 
     sub _before_foo {
         my ($self, $v) = @_;
@@ -247,9 +249,16 @@ sub _add_accessors {
         *$accessor = sub {
             my ( $self, $v ) = @_;
             if ( defined $v ) {
+                # re-entrancy guard: skip _after_* if we're already setting this attribute
+                my $is_reentrant = $self->{__sa_setting}{$att};
+                local $self->{__sa_setting}{$att} = 1;
+
                 foreach (qw{before validate set after}) {
                     if ( $_ eq 'set' ) {
                         $self->{$att} = $v;
+                        next;
+                    }
+                    if ( $_ eq 'after' && $is_reentrant ) {
                         next;
                     }
                     my $sub = '_' . $_ . '_' . $att;
