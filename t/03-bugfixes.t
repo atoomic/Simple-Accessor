@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 19;
 
 # --- Test packages defined inline ---
 
@@ -127,3 +127,39 @@ is( FalsyBuilder->undef_call_count(), 1,
 my $fb3 = FalsyBuilder->new();
 is $fb3->zero_val, 0, 'zero_val is 0 after build';
 is $fb3->zero_val, 0, 'zero_val stays 0 on subsequent access';
+
+# === Bug 4: Attribute initialization order is deterministic ===
+
+{
+    package DeterministicOrder;
+    use Simple::Accessor qw{first second third};
+
+    my @set_order;
+
+    sub _before_first  { push @set_order, 'first';  return 1 }
+    sub _before_second { push @set_order, 'second'; return 1 }
+    sub _before_third  { push @set_order, 'third';  return 1 }
+
+    sub set_order { [@set_order] }
+    sub reset_order { @set_order = () }
+
+    package main;
+
+    # Run multiple times to catch hash randomization
+    DeterministicOrder->reset_order();
+    for my $trial (1..5) {
+        DeterministicOrder->new(third => 3, first => 1, second => 2);
+    }
+    is_deeply( DeterministicOrder->set_order(),
+        [('first', 'second', 'third') x 5],
+        'attributes initialized in declaration order, not hash order' );
+
+    # Only declared attributes are initialized (unknown keys ignored)
+    DeterministicOrder->reset_order();
+    my $obj = DeterministicOrder->new(second => 2, unknown => 99, first => 1);
+    is_deeply( DeterministicOrder->set_order(),
+        ['first', 'second'],
+        'only declared attributes initialized, unknown keys skipped' );
+    ok !exists $obj->{unknown}, 'unknown key not stored on object';
+    is $obj->first, 1, 'declared attributes still set correctly';
+}
