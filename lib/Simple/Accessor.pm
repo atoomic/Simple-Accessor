@@ -307,20 +307,27 @@ sub _add_accessors {
                 my $is_reentrant = $self->{__sa_setting}{$att};
                 local $self->{__sa_setting}{$att} = 1;
 
-                foreach (qw{before validate set after}) {
-                    if ( $_ eq 'set' ) {
-                        $self->{$att} = $v;
-                        next;
-                    }
-                    if ( $_ eq 'after' && $is_reentrant ) {
-                        next;
-                    }
+                foreach (qw{before validate}) {
                     my $sub = '_' . $_ . '_' . $att;
                     if ( $self->can( $sub ) ) {
                         return unless $self->$sub($v);
                     } elsif ( $from_role  ) {
                         if ( my $code = $from_role->can( $sub ) ) {
                             return unless $code->( $self, $v );
+                        }
+                    }
+                }
+
+                $self->{$att} = $v;
+
+                # _after_* hooks run for side effects only; return value is ignored
+                if ( !$is_reentrant ) {
+                    my $sub = '_after_' . $att;
+                    if ( $self->can( $sub ) ) {
+                        $self->$sub($v);
+                    } elsif ( $from_role  ) {
+                        if ( my $code = $from_role->can( $sub ) ) {
+                            $code->( $self, $v );
                         }
                     }
                 }
