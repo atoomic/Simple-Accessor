@@ -159,11 +159,14 @@ sub import {
 
     $INFO = {} unless defined $INFO;
     $INFO->{$from} = {} unless defined $INFO->{$from};
-    $INFO->{$from}->{'attributes'} = [ @attr ];
+    $INFO->{$from}->{'attributes'} ||= [];
 
     _add_with($from);
     _add_new($from);
     _add_accessors( to => $from, attributes => \@attr );
+
+    # append after _add_accessors succeeds (it dies on duplicates)
+    push @{$INFO->{$from}->{'attributes'}}, @attr;
 
     return;
 }
@@ -171,6 +174,7 @@ sub import {
 sub _add_with {
     my $class = shift;
     return unless $class;
+    return if $class->can('with');
 
     my $with  = $class . '::with';
     {
@@ -211,6 +215,7 @@ sub _add_with {
 sub _add_new {
     my $class = shift;
     return unless $class;
+    return if $class->can('new');
 
     my $new  = $class . '::new';
     {
