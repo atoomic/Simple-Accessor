@@ -183,7 +183,10 @@ sub _add_with {
 
             foreach my $module ( @what ) {
                 die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
-                eval qq[require $module; 1] or die $@;
+                # skip require if the role is already registered (e.g. inline package)
+                unless ($INFO->{$module} && $INFO->{$module}->{attributes}) {
+                    eval qq[require $module; 1] or die $@;
+                }
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
                 _add_accessors(

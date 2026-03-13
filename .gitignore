@@ -5,3 +5,8 @@ logs
 local
 cpanfile.snapshot
 result.xml
+blib/
+Makefile
+Makefile.old
+MYMETA.*
+pm_to_blib
