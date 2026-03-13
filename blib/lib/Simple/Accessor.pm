@@ -53,18 +53,6 @@ accessible.
     # that s all what you need ! no more line required
     use Simple::Accessor qw{foo bar cherry apple};
 
-You can also split your attribute declarations across multiple C<use> statements.
-Attributes from all imports are merged and fully supported by the constructor,
-strict constructor mode, and deterministic initialization ordering.
-
-    package MyClass;
-
-    use Simple::Accessor qw{foo bar};
-    use Simple::Accessor qw{cherry apple};
-
-    # all four attributes work in the constructor
-    my $o = MyClass->new(foo => 1, bar => 2, cherry => 3, apple => 4);
-
 You can now call 'new' on your class, and create objects using these attributes
 
     package main;
@@ -199,24 +187,14 @@ sub _add_with {
 
             foreach my $module ( @what ) {
                 die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
-                # skip require if the role is already registered (e.g. inline package)
-                unless ($INFO->{$module} && $INFO->{$module}->{attributes}) {
-                    eval qq[require $module; 1] or die $@;
-                }
+                eval qq[require $module; 1] or die $@;
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
-                # Resolve each attribute's origin role for transitive composition.
-                # If MiddleRole composed OriginRole's attrs, their hooks live
-                # in OriginRole — not MiddleRole.  Pass the correct origin so
-                # the accessor closure can find _build_*, _before_*, etc.
-                my $origins = $INFO->{$module}{attr_origin} || {};
-                foreach my $att (@{$INFO->{$module}->{attributes}}) {
-                    _add_accessors(
-                        to         => $class,
-                        attributes => [$att],
-                        from_role  => $origins->{$att} || $module
-                    );
-                }
+                _add_accessors(
+                    to => $class,
+                    attributes => $INFO->{$module}->{attributes},
+                    from_role => $module
+                );
             }
 
             return;
@@ -260,7 +238,6 @@ sub _add_new {
             foreach my $init ( 'build', 'initialize' ) {
                 if ( $self->can( $init ) ) {
                     return unless $self->$init(%opts);
-                    last;  # build takes precedence over initialize
                 }
             }
 
@@ -291,11 +268,9 @@ sub _add_accessors {
             die "$class: attribute '$att' is already defined.";
         }
 
-        # track role attributes in the class's attribute list and remember
-        # which role originally defined them (for transitive composition)
+        # track role attributes in the class's attribute list
         if ( $from_role ) {
             push @{$INFO->{$class}{attributes}}, $att;
-            $INFO->{$class}{attr_origin}{$att} = $from_role;
         }
 
         # allow symbolic refs to typeglob
