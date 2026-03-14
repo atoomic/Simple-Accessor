@@ -189,11 +189,18 @@ sub _add_with {
                 }
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
-                _add_accessors(
-                    to => $class,
-                    attributes => $INFO->{$module}->{attributes},
-                    from_role => $module
-                );
+                # Resolve each attribute's origin role for transitive composition.
+                # If MiddleRole composed OriginRole's attrs, their hooks live
+                # in OriginRole — not MiddleRole.  Pass the correct origin so
+                # the accessor closure can find _build_*, _before_*, etc.
+                my $origins = $INFO->{$module}{attr_origin} || {};
+                foreach my $att (@{$INFO->{$module}->{attributes}}) {
+                    _add_accessors(
+                        to         => $class,
+                        attributes => [$att],
+                        from_role  => $origins->{$att} || $module
+                    );
+                }
             }
 
             return;
@@ -267,9 +274,11 @@ sub _add_accessors {
             die "$class: attribute '$att' is already defined.";
         }
 
-        # track role attributes in the class's attribute list
+        # track role attributes in the class's attribute list and remember
+        # which role originally defined them (for transitive composition)
         if ( $from_role ) {
             push @{$INFO->{$class}{attributes}}, $att;
+            $INFO->{$class}{attr_origin}{$att} = $from_role;
         }
 
         # allow symbolic refs to typeglob
