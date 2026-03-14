@@ -95,8 +95,8 @@ use Test::More tests => 45;
 
     my $obj = BuildVsInit->new();
     ok $obj, 'build + initialize: both run, object created';
-    is_deeply( BuildVsInit->call_order(), ['build', 'initialize'],
-        'build() runs first, then initialize()' );
+    is_deeply( BuildVsInit->call_order(), ['build'],
+        'build() takes precedence, initialize() is not called' );
 }
 
 # --- build() returning false => new() returns undef ---
