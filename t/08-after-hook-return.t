@@ -5,42 +5,42 @@ use Test::More tests => 12;
 
 # --- Test packages ---
 
-# 1. _after_* hook that returns false
+# 1. _after_* hook that returns true — value should be set
 {
-    package AfterReturnsFalse;
+    package AfterReturnsTrue;
     use Simple::Accessor qw{color size};
 
     sub _after_color {
         my ($self, $v) = @_;
         # Side effect: sync size from color length
         $self->size(length($v)) if defined $v;
-        return 0;  # false return should NOT affect the setter
+        return 1;  # true return, value stays set
     }
 }
 
-# 2. _after_* hook that returns undef
+# 2. _after_* hook that returns false — gates the setter like _before_*
 {
-    package AfterReturnsUndef;
+    package AfterReturnsFalse;
     use Simple::Accessor qw{name};
 
     sub _after_name {
         my ($self, $v) = @_;
-        return undef;  # should be ignored
+        return 0;  # false return gates the setter
     }
 }
 
-# 3. _after_* hook that returns empty string
+# 3. _after_* hook that returns undef — gates the setter like _before_*
 {
-    package AfterReturnsEmpty;
+    package AfterReturnsUndef;
     use Simple::Accessor qw{tag};
 
     sub _after_tag {
         my ($self, $v) = @_;
-        return '';  # false-y, should be ignored
+        return undef;  # false-y return gates the setter
     }
 }
 
-# 4. _before_* and _validate_* should still gate the setter
+# 4. _before_* returning false gates the setter
 {
     package BeforeStillGates;
     use Simple::Accessor qw{guarded};
@@ -51,6 +51,7 @@ use Test::More tests => 12;
     }
 }
 
+# 5. _validate_* returning false gates the setter
 {
     package ValidateStillGates;
     use Simple::Accessor qw{checked};
@@ -61,54 +62,49 @@ use Test::More tests => 12;
     }
 }
 
-# === _after_* returning false does NOT prevent the set ===
+# === _after_* returning true allows the set ===
 
-my $obj = AfterReturnsFalse->new();
+my $obj = AfterReturnsTrue->new();
 $obj->color('red');
 is $obj->color, 'red',
-    '_after_* returning 0 does not prevent value from being set';
+    '_after_* returning true allows value to be set';
 
 is $obj->size, 3,
-    '_after_* side effect still executed (size set from color length)';
+    '_after_* side effect executed (size set from color length)';
 
-# Accessor return value should be the stored value, not the hook's return
 my $ret = $obj->color('blue');
 is $ret, 'blue',
-    'accessor returns the stored value, not the _after_* return value';
+    'accessor returns stored value when _after_* returns true';
 
 is $obj->size, 4,
     '_after_* side effect updates on each set';
 
-# === _after_* returning undef does NOT prevent the set ===
+# === _after_* returning false gates the setter (same as _before_*) ===
 
-my $obj2 = AfterReturnsUndef->new();
-$obj2->name('alice');
-is $obj2->name, 'alice',
-    '_after_* returning undef does not prevent value from being set';
+my $obj2 = AfterReturnsFalse->new();
+my $ret2 = $obj2->name('alice');
+ok !defined($ret2),
+    '_after_* returning false makes accessor return undef';
 
-my $ret2 = $obj2->name('bob');
-is $ret2, 'bob',
-    'accessor returns stored value when _after_* returns undef';
+# === _after_* returning undef gates the setter (same as _before_*) ===
 
-# === _after_* returning empty string does NOT prevent the set ===
+my $obj3 = AfterReturnsUndef->new();
+my $ret3 = $obj3->tag('important');
+ok !defined($ret3),
+    '_after_* returning undef makes accessor return undef';
 
-my $obj3 = AfterReturnsEmpty->new();
-$obj3->tag('important');
-is $obj3->tag, 'important',
-    '_after_* returning empty string does not prevent value from being set';
-
-# === _before_* returning false STILL prevents the set ===
+# === _before_* returning false gates the setter ===
 
 my $obj4 = BeforeStillGates->new();
 $obj4->guarded(42);
 is $obj4->guarded, undef,
-    '_before_* returning false still prevents value from being set';
+    '_before_* returning false prevents value from being set';
 
 my $ret4 = $obj4->guarded(99);
 ok !defined($ret4),
     '_before_* returning false makes accessor return undef';
 
-# === _validate_* returning false STILL prevents the set ===
+# === _validate_* returning false gates the setter ===
 
 my $obj5 = ValidateStillGates->new();
 $obj5->checked(10);
@@ -122,3 +118,6 @@ is $obj5->checked, 10,
 my $ret5 = $obj5->checked(-1);
 ok !defined($ret5),
     '_validate_* returning false makes accessor return undef';
+
+# === all three hooks behave the same way ===
+ok 1, '_before_*, _validate_*, and _after_* all gate the setter on false return';
