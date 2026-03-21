@@ -145,7 +145,7 @@ You can enable strict constructor mode to catch typos in attribute names:
 This is opt-in and off by default for backward compatibility.
 
 You can even use a very basic but useful hook system.
-Any false value return by before or validate, will stop the setting process.
+Any false value returned by before, validate, or after will stop the setting process.
 The after hooks include a re-entrancy guard: if an C<_after_*> hook triggers
 a setter that would re-enter the same attribute, the nested C<_after_*> call
 is skipped to prevent infinite recursion.
@@ -351,27 +351,20 @@ sub _add_accessors {
                 my $is_reentrant = $self->{__sa_setting}{$att};
                 local $self->{__sa_setting}{$att} = 1;
 
-                foreach (qw{before validate}) {
+                foreach (qw{before validate set after}) {
+                    if ( $_ eq 'set' ) {
+                        $self->{$att} = $v;
+                        next;
+                    }
+                    if ( $_ eq 'after' && $is_reentrant ) {
+                        next;
+                    }
                     my $sub = '_' . $_ . '_' . $att;
                     if ( $self->can( $sub ) ) {
                         return unless $self->$sub($v);
                     } elsif ( $from_role  ) {
                         if ( my $code = $from_role->can( $sub ) ) {
                             return unless $code->( $self, $v );
-                        }
-                    }
-                }
-
-                $self->{$att} = $v;
-
-                # _after_* hooks run for side effects only; return value is ignored
-                if ( !$is_reentrant ) {
-                    my $sub = '_after_' . $att;
-                    if ( $self->can( $sub ) ) {
-                        $self->$sub($v);
-                    } elsif ( $from_role  ) {
-                        if ( my $code = $from_role->can( $sub ) ) {
-                            $code->( $self, $v );
                         }
                     }
                 }
