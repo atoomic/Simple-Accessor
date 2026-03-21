@@ -28,7 +28,6 @@ my %WriteMakefileArgs = (
     "IPC::Open3" => 0,
     "Scalar::Util" => 0,
     "Test::More" => "0.94",
-    "This::Module::Does::Not::Exist" => 0,
     "lib" => 0
   },
   "VERSION" => "1.13",
@@ -46,7 +45,6 @@ my %FallbackPrereqs = (
   "IPC::Open3" => 0,
   "Scalar::Util" => 0,
   "Test::More" => "0.94",
-  "This::Module::Does::Not::Exist" => 0,
   "lib" => 0,
   "strict" => 0,
   "warnings" => 0
