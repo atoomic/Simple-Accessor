@@ -1,5 +1,5 @@
-[![Actions Status](https://github.com/atoomic/Simple-Accessor/workflows/linux/badge.svg)](https://github.com/atoomic/Simple-Accessor/actions)
-[![Actions Status](https://github.com/atoomic/Simple-Accessor/workflows/macos/badge.svg)](https://github.com/atoomic/Simple-Accessor/actions)
+[![Actions Status](https://github.com/atoomic/Simple-Accessor/actions/workflows/linux/badge.svg)](https://github.com/atoomic/Simple-Accessor/actions)
+[![Actions Status](https://github.com/atoomic/Simple-Accessor/actions/workflows/macos/badge.svg)](https://github.com/atoomic/Simple-Accessor/actions)
 
 # NAME
 Simple::Accessor - very simple, light and powerful accessor
@@ -49,6 +49,20 @@ package MyClass;
 
 # that s all what you need ! no more line required
 use Simple::Accessor qw{foo bar cherry apple};
+```
+
+You can also split your attribute declarations across multiple `use` statements.
+Attributes from all imports are merged and fully supported by the constructor,
+strict constructor mode, and deterministic initialization ordering.
+
+```perl
+package MyClass;
+
+use Simple::Accessor qw{foo bar};
+use Simple::Accessor qw{cherry apple};
+
+# all four attributes work in the constructor
+my $o = MyClass->new(foo => 1, bar => 2, cherry => 3, apple => 4);
 ```
 
 You can now call 'new' on your class, and create objects using these attributes
@@ -111,9 +125,26 @@ sub _build_cherry {
 }
 ```
 
+You can enable strict constructor mode to catch typos in attribute names:
+
+```perl
+package MyClass;
+use Simple::Accessor qw{name age};
+
+sub _strict_constructor { 1 }
+
+package main;
+MyClass->new(nmae => 'oops');
+# dies: "MyClass->new(): unknown attribute(s): nmae"
+```
+
+This is opt-in and off by default for backward compatibility.
+
 You can even use a very basic but useful hook system.
 Any false value return by before or validate, will stop the setting process.
-Be careful with the after method, as there is no protection against infinite loop.
+The after hooks include a re-entrancy guard: if an `_after_*` hook triggers
+a setter that would re-enter the same attribute, the nested `_after_*` call
+is skipped to prevent infinite recursion.
 
 ```perl
 sub _before_foo {
