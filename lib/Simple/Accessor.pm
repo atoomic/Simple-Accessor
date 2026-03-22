@@ -65,6 +65,22 @@ strict constructor mode, and deterministic initialization ordering.
     # all four attributes work in the constructor
     my $o = MyClass->new(foo => 1, bar => 2, cherry => 3, apple => 4);
 
+Inheritance via C<@ISA> is supported. The constructor recognizes attributes
+from parent classes, so you can subclass naturally:
+
+    package Vehicle;
+    use Simple::Accessor qw{speed};
+    sub _build_speed { 0 }
+
+    package Car;
+    our @ISA = ('Vehicle');
+    use Simple::Accessor qw{brand};
+
+    package main;
+
+    my $car = Car->new(brand => 'Tesla', speed => 100);
+    is $car->speed, 100;  # parent attr set via child constructor
+
 You can now call 'new' on your class, and create objects using these attributes
 
     package main;
@@ -224,6 +240,33 @@ sub _add_with {
     }
 }
 
+# Collect all attributes for a class, including inherited ones via @ISA.
+# Returns an arrayref of unique attribute names in declaration order:
+# own attrs first, then parent attrs (depth-first @ISA traversal).
+sub _all_attributes {
+    my ($class) = @_;
+    my $own = $INFO->{$class}{attributes} || [];
+    my @all = @{$own};
+    my %seen = map { $_ => 1 } @all;
+
+    # walk @ISA depth-first to collect parent SA attributes
+    my @queue;
+    {
+        no strict 'refs';
+        @queue = @{"${class}::ISA"};
+    }
+    while ( my $parent = shift @queue ) {
+        my $parent_attrs = $INFO->{$parent}{attributes} || [];
+        for my $attr ( @{$parent_attrs} ) {
+            push @all, $attr unless $seen{$attr}++;
+        }
+        no strict 'refs';
+        push @queue, @{"${parent}::ISA"};
+    }
+
+    return \@all;
+}
+
 sub _add_new {
     my $class = shift;
     return unless $class;
@@ -242,7 +285,8 @@ sub _add_new {
             }
 
             # set values for known attributes (in declaration order)
-            my $attrs = $INFO->{$class}{attributes} || [];
+            # includes inherited attributes from parent classes via @ISA
+            my $attrs = _all_attributes($class);
             foreach my $attr ( @{$attrs} ) {
                 $self->$attr( $opts{$attr} ) if exists $opts{$attr};
             }
