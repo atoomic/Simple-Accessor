@@ -73,7 +73,7 @@ from parent classes, so you can subclass naturally:
     sub _build_speed { 0 }
 
     package Car;
-    our @ISA = ('Vehicle');
+    use parent -norequire, 'Vehicle';
     use Simple::Accessor qw{brand};
 
     package main;
@@ -202,7 +202,14 @@ sub import {
 sub _add_with {
     my $class = shift;
     return unless $class;
-    return if $class->can('with');
+    # Check own namespace only (not @ISA) so each SA class gets its own with().
+    # can() walks @ISA and would skip children whose parents already have with(),
+    # but with() is called as a bare function — not a method — so it must exist
+    # directly in the class's stash.
+    {
+        no strict 'refs';
+        return if defined &{"${class}::with"};
+    }
 
     my $with  = $class . '::with';
     {
@@ -270,7 +277,14 @@ sub _all_attributes {
 sub _add_new {
     my $class = shift;
     return unless $class;
-    return if $class->can('new');
+    # Same rationale as _add_with: check own stash, not @ISA.
+    # new() is called as a method (Class->new), so inheritance works,
+    # but installing per-class ensures correct behavior when a non-SA
+    # class sits between two SA classes in the MRO.
+    {
+        no strict 'refs';
+        return if defined &{"${class}::new"};
+    }
 
     my $new  = $class . '::new';
     {
