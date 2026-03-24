@@ -177,3 +177,7 @@ None. The only public method provided is the classical import.
 # CONTRIBUTE
 
 You can contribute to this project on github https://github.com/atoomic/Simple-Accessor
+
+# AI POLICY
+
+This project uses AI tools to assist development. Humans review and approve every change before it is merged. See [AI\_POLICY.md](AI_POLICY.md) for details.
