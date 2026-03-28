@@ -249,26 +249,23 @@ sub _add_with {
 
 # Collect all attributes for a class, including inherited ones via @ISA.
 # Returns an arrayref of unique attribute names in declaration order:
-# own attrs first, then parent attrs (depth-first @ISA traversal).
+# own attrs first, then parent attrs following Perl's MRO (DFS or C3).
 sub _all_attributes {
     my ($class) = @_;
     my $own = $INFO->{$class}{attributes} || [];
     my @all = @{$own};
     my %seen = map { $_ => 1 } @all;
 
-    # walk @ISA depth-first to collect parent SA attributes
-    my @queue;
-    {
-        no strict 'refs';
-        @queue = @{"${class}::ISA"};
-    }
-    while ( my $parent = shift @queue ) {
+    # use Perl's MRO (respects both default DFS and use mro 'c3')
+    require mro;
+    my $mro = mro::get_linear_isa($class);
+    # skip $class itself (index 0) — already handled above
+    for my $i ( 1 .. $#{$mro} ) {
+        my $parent = $mro->[$i];
         my $parent_attrs = $INFO->{$parent}{attributes} || [];
         for my $attr ( @{$parent_attrs} ) {
             push @all, $attr unless $seen{$attr}++;
         }
-        no strict 'refs';
-        push @queue, @{"${parent}::ISA"};
     }
 
     return \@all;
