@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 12;
+use Test::More tests => 19;
 
 # --- Test packages ---
 
@@ -86,12 +86,46 @@ my $ret2 = $obj2->name('alice');
 ok !defined($ret2),
     '_after_* returning false makes accessor return undef';
 
+is $obj2->name, undef,
+    '_after_* returning false rolls back the set (value not stored)';
+
+# set a value first, then try to set again with _after_* rejecting
+# (need a class where _after_* conditionally rejects)
+{
+    package AfterConditional;
+    use Simple::Accessor qw{score};
+
+    sub _after_score {
+        my ($self, $v) = @_;
+        return $v <= 100 ? 1 : 0;  # reject scores over 100
+    }
+}
+
+my $cond = AfterConditional->new();
+$cond->score(50);
+is $cond->score, 50,
+    '_after_* returning true keeps value set';
+
+$cond->score(200);
+is $cond->score, 50,
+    '_after_* returning false restores previous value';
+
+my $ret_cond = $cond->score(999);
+ok !defined($ret_cond),
+    '_after_* returning false makes accessor return undef (conditional)';
+
+is $cond->score, 50,
+    'previous value survives multiple rejected sets';
+
 # === _after_* returning undef gates the setter (same as _before_*) ===
 
 my $obj3 = AfterReturnsUndef->new();
 my $ret3 = $obj3->tag('important');
 ok !defined($ret3),
     '_after_* returning undef makes accessor return undef';
+
+is $obj3->tag, undef,
+    '_after_* returning undef rolls back the set (value not stored)';
 
 # === _before_* returning false gates the setter ===
 
@@ -118,6 +152,19 @@ is $obj5->checked, 10,
 my $ret5 = $obj5->checked(-1);
 ok !defined($ret5),
     '_validate_* returning false makes accessor return undef';
+
+# === _after_* rollback works when attribute had no prior value ===
+{
+    package AfterRollbackFresh;
+    use Simple::Accessor qw{label};
+
+    sub _after_label { return 0; }
+}
+
+my $fresh = AfterRollbackFresh->new();
+$fresh->label('test');
+ok !exists($fresh->{label}),
+    '_after_* rollback deletes attribute when it had no prior value';
 
 # === all three hooks behave the same way ===
 ok 1, '_before_*, _validate_*, and _after_* all gate the setter on false return';
