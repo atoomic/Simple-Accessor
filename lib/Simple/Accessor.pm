@@ -365,6 +365,10 @@ sub _add_accessors {
                 my $is_reentrant = $self->{__sa_setting}{$att};
                 local $self->{__sa_setting}{$att} = 1;
 
+                # save old state so _after_* can rollback the set on false return
+                my $had_old = exists $self->{$att};
+                my $old_val = $self->{$att};
+
                 foreach (qw{before validate set after}) {
                     if ( $_ eq 'set' ) {
                         $self->{$att} = $v;
@@ -375,10 +379,22 @@ sub _add_accessors {
                     }
                     my $sub = '_' . $_ . '_' . $att;
                     if ( $self->can( $sub ) ) {
-                        return unless $self->$sub($v);
+                        unless ( $self->$sub($v) ) {
+                            if ( $_ eq 'after' ) {
+                                if ($had_old) { $self->{$att} = $old_val }
+                                else          { delete $self->{$att}     }
+                            }
+                            return;
+                        }
                     } elsif ( $from_role  ) {
                         if ( my $code = $from_role->can( $sub ) ) {
-                            return unless $code->( $self, $v );
+                            unless ( $code->( $self, $v ) ) {
+                                if ( $_ eq 'after' ) {
+                                    if ($had_old) { $self->{$att} = $old_val }
+                                    else          { delete $self->{$att}     }
+                                }
+                                return;
+                            }
                         }
                     }
                 }
