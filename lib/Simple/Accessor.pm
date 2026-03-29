@@ -310,14 +310,12 @@ sub _add_new {
                 $self->_before_build( %opts );
             }
 
-            # set values for known attributes (in declaration order)
             # includes inherited attributes from parent classes via @ISA
             my $attrs = _all_attributes($class);
-            foreach my $attr ( @{$attrs} ) {
-                $self->$attr( $opts{$attr} ) if exists $opts{$attr};
-            }
 
-            # strict constructor: die on unknown attributes
+            # strict constructor: die on unknown attributes BEFORE setting
+            # any values, so attribute hooks don't fire with side effects
+            # that would be discarded when the constructor dies.
             if ( $self->can('_strict_constructor') && $self->_strict_constructor() ) {
                 my %known = map { $_ => 1 } @{$attrs};
                 my @unknown = sort grep { !$known{$_} } keys %opts;
@@ -325,6 +323,11 @@ sub _add_new {
                     die "$class\->new(): unknown attribute(s): "
                         . join(', ', @unknown) . "\n";
                 }
+            }
+
+            # set values for known attributes (in declaration order)
+            foreach my $attr ( @{$attrs} ) {
+                $self->$attr( $opts{$attr} ) if exists $opts{$attr};
             }
 
             foreach my $init ( 'build', 'initialize' ) {
