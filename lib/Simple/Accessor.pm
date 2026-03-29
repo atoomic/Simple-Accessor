@@ -228,16 +228,25 @@ sub _add_with {
                 }
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
-                # Resolve each attribute's origin role for transitive composition.
-                # If MiddleRole composed OriginRole's attrs, their hooks live
-                # in OriginRole — not MiddleRole.  Pass the correct origin so
-                # the accessor closure can find _build_*, _before_*, etc.
+                # Build a role resolution chain for each attribute.
+                # The chain starts with the immediate role ($module), then
+                # appends any deeper origins so hooks resolve most-specific
+                # first.  E.g. if MiddleRole overrides _validate_foo from
+                # OriginRole, the chain is [MiddleRole, OriginRole] — the
+                # accessor tries MiddleRole first.
                 my $origins = $INFO->{$module}{attr_origin} || {};
                 foreach my $att (@{$INFO->{$module}->{attributes}}) {
+                    my @chain = ($module);
+                    if (my $parent = $origins->{$att}) {
+                        push @chain, ref $parent eq 'ARRAY' ? @$parent : $parent;
+                    }
+                    # dedup while preserving order (most-specific first)
+                    my %seen;
+                    @chain = grep { !$seen{$_}++ } @chain;
                     _add_accessors(
                         to         => $class,
                         attributes => [$att],
-                        from_role  => $origins->{$att} || $module
+                        from_roles => \@chain
                     );
                 }
             }
@@ -335,22 +344,22 @@ sub _add_accessors {
     my @attributes = @{ $opts{attributes} };
     return unless @attributes;
 
-    my $from_role = $opts{from_role};
+    my $from_roles = $opts{from_roles} || [];
 
     foreach my $att (@attributes) {
         my $accessor = $class . "::" . $att;
 
         if ( $class->can($att) ) {
             # skip silently when composing roles (duplicates are OK)
-            next if $from_role;
+            next if @$from_roles;
             die "$class: attribute '$att' is already defined.";
         }
 
         # track role attributes in the class's attribute list and remember
-        # which role originally defined them (for transitive composition)
-        if ( $from_role ) {
+        # which roles defined them (for transitive composition)
+        if ( @$from_roles ) {
             push @{$INFO->{$class}{attributes}}, $att;
-            $INFO->{$class}{attr_origin}{$att} = $from_role;
+            $INFO->{$class}{attr_origin}{$att} = $from_roles;
         }
 
         # allow symbolic refs to typeglob
@@ -383,14 +392,17 @@ sub _add_accessors {
                             }
                             return;
                         }
-                    } elsif ( $from_role  ) {
-                        if ( my $code = $from_role->can( $sub ) ) {
-                            unless ( $code->( $self, $v ) ) {
-                                if ( $_ eq 'after' ) {
-                                    if ($had_old) { $self->{$att} = $old_val }
-                                    else          { delete $self->{$att}     }
+                    } elsif ( @$from_roles ) {
+                        for my $role ( @$from_roles ) {
+                            if ( my $code = $role->can( $sub ) ) {
+                                unless ( $code->( $self, $v ) ) {
+                                    if ( $_ eq 'after' ) {
+                                        if ($had_old) { $self->{$att} = $old_val }
+                                        else          { delete $self->{$att}     }
+                                    }
+                                    return;
                                 }
-                                return;
+                                last;
                             }
                         }
                     }
@@ -403,9 +415,11 @@ sub _add_accessors {
                     my $sub = '_' . $builder . '_' . $att;
                     if ( $self->can( $sub ) ) {
                         return $self->{$att} = $self->$sub();
-                    } elsif ( $from_role  ) {
-                        if ( my $code = $from_role->can( $sub ) ) {
-                            return $self->{$att} = $code->( $self );
+                    } elsif ( @$from_roles ) {
+                        for my $role ( @$from_roles ) {
+                            if ( my $code = $role->can( $sub ) ) {
+                                return $self->{$att} = $code->( $self );
+                            }
                         }
                     }
                 }
