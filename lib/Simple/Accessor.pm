@@ -180,6 +180,11 @@ None. The only public method provided is the classical import.
 
 my $INFO;
 
+# Internal hash key for re-entrancy guard state.  Uses a null-byte prefix
+# so it can never collide with a user-declared attribute name (valid Perl
+# identifiers cannot start with \0).
+my $_GUARD_KEY = "\0_sa_guard";
+
 sub import {
     my ( $class, @attr ) = @_;
 
@@ -369,8 +374,8 @@ sub _add_accessors {
             my ( $self, $v ) = @_;
             if ( @_ > 1 ) {
                 # re-entrancy guard: skip _after_* if we're already setting this attribute
-                my $is_reentrant = $self->{__sa_setting}{$att};
-                local $self->{__sa_setting}{$att} = 1;
+                my $is_reentrant = $self->{$_GUARD_KEY}{$att};
+                local $self->{$_GUARD_KEY}{$att} = 1;
 
                 # save old state so _after_* can rollback the set on false return
                 my $had_old = exists $self->{$att};
