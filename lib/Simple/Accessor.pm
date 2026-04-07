@@ -82,14 +82,15 @@ from parent classes, so you can subclass naturally:
     my $car = Car->new(brand => 'Tesla', speed => 100);
     is $car->speed, 100;  # parent attr set via child constructor
 
-You can now call 'new' on your class, and create objects using these attributes
+You can now call 'new' on your class, and create objects using these attributes.
+The constructor accepts both a hash and a hashref:
 
     package main;
     use MyClass;
 
     my $o = MyClass->new()
         or MyClass->new(bar => 42)
-        or MyClass->new(apple => 'fruit', cherry => 'fruit', banana => 'yummy');
+        or MyClass->new({ apple => 'fruit', cherry => 'fruit' });
 
 You can get / set any value using the accessor
 
@@ -308,8 +309,9 @@ sub _add_new {
     {
         no strict 'refs';
         *$new = sub {
-            my ( $class, %opts ) = @_;
+            my $class = shift;
             $class = ref($class) || $class;
+            my %opts = ref $_[0] eq 'HASH' ? %{$_[0]} : @_;
 
             my $self = bless {}, $class;
 
