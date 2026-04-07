@@ -3,6 +3,8 @@ package Simple::Accessor;
 use strict;
 use warnings;
 
+require mro;
+
 # ABSTRACT: a light and simple way to provide accessor in perl
 
 # VERSION
@@ -224,7 +226,8 @@ sub _add_with {
                 die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
                 # skip require if the role is already registered (e.g. inline package)
                 unless ($INFO->{$module} && $INFO->{$module}->{attributes}) {
-                    eval qq[require $module; 1] or die $@;
+                    (my $file = "$module.pm") =~ s{::}{/}g;
+                    eval { require $file; 1 } or die $@;
                 }
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
@@ -266,7 +269,6 @@ sub _all_attributes {
     my %seen = map { $_ => 1 } @all;
 
     # use Perl's MRO (respects both default DFS and use mro 'c3')
-    require mro;
     my $mro = mro::get_linear_isa($class);
     # skip $class itself (index 0) — already handled above
     for my $i ( 1 .. $#{$mro} ) {
@@ -384,26 +386,21 @@ sub _add_accessors {
                         next;
                     }
                     my $sub = '_' . $_ . '_' . $att;
-                    if ( $self->can( $sub ) ) {
-                        unless ( $self->$sub($v) ) {
+                    # resolve hook coderef: class overrides first, then role chain
+                    my $code = $self->can( $sub );
+                    if ( !$code && @$from_roles ) {
+                        for my $role ( @$from_roles ) {
+                            $code = $role->can( $sub );
+                            last if $code;
+                        }
+                    }
+                    if ( $code ) {
+                        unless ( $code->( $self, $v ) ) {
                             if ( $_ eq 'after' ) {
                                 if ($had_old) { $self->{$att} = $old_val }
                                 else          { delete $self->{$att}     }
                             }
                             return;
-                        }
-                    } elsif ( @$from_roles ) {
-                        for my $role ( @$from_roles ) {
-                            if ( my $code = $role->can( $sub ) ) {
-                                unless ( $code->( $self, $v ) ) {
-                                    if ( $_ eq 'after' ) {
-                                        if ($had_old) { $self->{$att} = $old_val }
-                                        else          { delete $self->{$att}     }
-                                    }
-                                    return;
-                                }
-                                last;
-                            }
                         }
                     }
                 }
@@ -413,14 +410,15 @@ sub _add_accessors {
                 #   initialize is here for backward compatibility with older versions
                 foreach my $builder ( qw{build initialize} ) {
                     my $sub = '_' . $builder . '_' . $att;
-                    if ( $self->can( $sub ) ) {
-                        return $self->{$att} = $self->$sub();
-                    } elsif ( @$from_roles ) {
+                    my $code = $self->can( $sub );
+                    if ( !$code && @$from_roles ) {
                         for my $role ( @$from_roles ) {
-                            if ( my $code = $role->can( $sub ) ) {
-                                return $self->{$att} = $code->( $self );
-                            }
+                            $code = $role->can( $sub );
+                            last if $code;
                         }
+                    }
+                    if ( $code ) {
+                        return $self->{$att} = $code->( $self );
                     }
                 }
             }
