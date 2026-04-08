@@ -297,6 +297,7 @@ sub _add_new {
         no strict 'refs';
         *$new = sub {
             my ( $class, %opts ) = @_;
+            $class = ref($class) || $class;
 
             my $self = bless {}, $class;
 
