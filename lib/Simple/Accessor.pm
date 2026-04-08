@@ -185,6 +185,12 @@ my $INFO;
 # identifiers cannot start with \0).
 my $_GUARD_KEY = "\0_sa_guard";
 
+# Per-class hook/builder cache.  Populated lazily on first access so that
+# hooks installed after import() still get picked up.  Keyed by the actual
+# object class (ref $self) so subclass overrides resolve correctly.
+# Structure: $_hook_cache->{$class}{"$attr\0$hook"} = $coderef | undef
+my $_hook_cache = {};
+
 sub import {
     my ( $class, @attr ) = @_;
 
@@ -384,6 +390,8 @@ sub _add_accessors {
                 my $had_old = exists $self->{$att};
                 my $old_val = $self->{$att};
 
+                my $hc = $_hook_cache->{ref $self} //= {};
+
                 foreach (qw{before validate set after}) {
                     if ( $_ eq 'set' ) {
                         $self->{$att} = $v;
@@ -392,27 +400,28 @@ sub _add_accessors {
                     if ( $_ eq 'after' && $is_reentrant ) {
                         next;
                     }
-                    my $sub = '_' . $_ . '_' . $att;
-                    if ( $self->can( $sub ) ) {
-                        unless ( $self->$sub($v) ) {
+
+                    my $ck = "${att}\0${_}";
+                    unless (exists $hc->{$ck}) {
+                        my $sub = '_' . $_ . '_' . $att;
+                        $hc->{$ck} = $self->can($sub);
+                        if (!$hc->{$ck} && @$from_roles) {
+                            for my $role (@$from_roles) {
+                                if (my $code = $role->can($sub)) {
+                                    $hc->{$ck} = $code;
+                                    last;
+                                }
+                            }
+                        }
+                    }
+
+                    if (my $code = $hc->{$ck}) {
+                        unless ( $code->($self, $v) ) {
                             if ( $_ eq 'after' ) {
                                 if ($had_old) { $self->{$att} = $old_val }
                                 else          { delete $self->{$att}     }
                             }
                             return;
-                        }
-                    } elsif ( @$from_roles ) {
-                        for my $role ( @$from_roles ) {
-                            if ( my $code = $role->can( $sub ) ) {
-                                unless ( $code->( $self, $v ) ) {
-                                    if ( $_ eq 'after' ) {
-                                        if ($had_old) { $self->{$att} = $old_val }
-                                        else          { delete $self->{$att}     }
-                                    }
-                                    return;
-                                }
-                                last;
-                            }
                         }
                     }
                 }
@@ -420,16 +429,23 @@ sub _add_accessors {
             elsif ( !exists $self->{$att} ) {
                 # try to initialize the value (try first with build)
                 #   initialize is here for backward compatibility with older versions
+                my $hc = $_hook_cache->{ref $self} //= {};
                 foreach my $builder ( qw{build initialize} ) {
-                    my $sub = '_' . $builder . '_' . $att;
-                    if ( $self->can( $sub ) ) {
-                        return $self->{$att} = $self->$sub();
-                    } elsif ( @$from_roles ) {
-                        for my $role ( @$from_roles ) {
-                            if ( my $code = $role->can( $sub ) ) {
-                                return $self->{$att} = $code->( $self );
+                    my $ck = "${att}\0${builder}";
+                    unless (exists $hc->{$ck}) {
+                        my $sub = '_' . $builder . '_' . $att;
+                        $hc->{$ck} = $self->can($sub);
+                        if (!$hc->{$ck} && @$from_roles) {
+                            for my $role (@$from_roles) {
+                                if (my $code = $role->can($sub)) {
+                                    $hc->{$ck} = $code;
+                                    last;
+                                }
                             }
                         }
+                    }
+                    if (my $code = $hc->{$ck}) {
+                        return $self->{$att} = $code->($self);
                     }
                 }
             }
