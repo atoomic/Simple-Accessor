@@ -82,20 +82,21 @@ is_deeply( BuildOnly->get_calls(), ['build'],
     'build() called when it is the only init method' );
 is $build_obj->val, 42, 'build() can set attributes';
 
-# --- Test: build() returning false prevents object creation ---
+# --- Test: build() returning false does NOT prevent object creation ---
+# (matches Moose/Moo convention: BUILD return value is ignored)
 
 {
-    package BuildFails;
+    package BuildReturnsFalsePrec;
     use Simple::Accessor qw{x};
 
     sub build { return 0 }
     sub initialize { die "should not be called" }
 }
 
-my $fail_obj = BuildFails->new();
-ok !$fail_obj, 'build() returning false prevents object creation';
+my $obj_false = BuildReturnsFalsePrec->new();
+ok defined($obj_false), 'build() returning false does not prevent object creation';
 
-# --- Test: initialize() not called after build() fails ---
+# --- Test: initialize() not called when build() exists (regardless of return value) ---
 
-eval { BuildFails->new() };
-ok !$@, 'initialize() is not called when build() returns false';
+eval { BuildReturnsFalsePrec->new() };
+ok !$@, 'initialize() is not called when build() exists';
