@@ -3,6 +3,7 @@ package Simple::Accessor;
 use 5.010;
 use strict;
 use warnings;
+use mro ();
 
 # ABSTRACT: a light and simple way to provide accessor in perl
 
@@ -236,7 +237,8 @@ sub _add_with {
                 die "Invalid module name: $module" unless $module =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
                 # skip require if the role is already registered (e.g. inline package)
                 unless ($INFO->{$module} && $INFO->{$module}->{attributes}) {
-                    eval qq[require $module; 1] or die $@;
+                    (my $file = "$module.pm") =~ s{::}{/}g;
+                    eval { require $file; 1 } or die $@;
                 }
                 die "$module is not a Simple::Accessor role"
                     unless $INFO->{$module} && $INFO->{$module}->{attributes};
@@ -278,7 +280,6 @@ sub _all_attributes {
     my %seen = map { $_ => 1 } @all;
 
     # use Perl's MRO (respects both default DFS and use mro 'c3')
-    require mro;
     my $mro = mro::get_linear_isa($class);
     # skip $class itself (index 0) — already handled above
     for my $i ( 1 .. $#{$mro} ) {
