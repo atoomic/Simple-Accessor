@@ -1,13 +1,13 @@
 use strict;
 use warnings;
 
-use Test::More tests => 45;
+use Test::More tests => 47;
 
 # ===================================================================
 # Test coverage for Simple::Accessor features not covered elsewhere:
 #   - _after_build callback
 #   - build() vs initialize() precedence
-#   - build()/initialize() returning false => new() returns undef
+#   - build()/initialize() return value ignored (Moose/Moo convention)
 #   - _before_* returning false blocks set
 #   - class isolation (two classes don't share attributes)
 #   - role hooks (_before_*, _validate_*, _after_*) inherited from role
@@ -99,36 +99,39 @@ use Test::More tests => 45;
         'build() takes precedence, initialize() is not called' );
 }
 
-# --- build() returning false => new() returns undef ---
+# --- build() returning false does NOT abort construction ---
+# (matches Moose/Moo convention: BUILD return value is ignored)
 {
     package BuildReturnsFalse;
     use Simple::Accessor qw{val};
 
     sub build {
         my ($self, %opts) = @_;
-        return 0;  # false
+        return 0;  # false — should be ignored
     }
 
     package main;
 
     my $obj = BuildReturnsFalse->new(val => 42);
-    is( $obj, undef, 'build() returning false makes new() return undef' );
+    ok( defined $obj, 'build() returning false does not abort construction' );
+    is( $obj->val, 42, 'attributes still set when build() returns false' );
 }
 
-# --- initialize() returning false => new() returns undef ---
+# --- initialize() returning false does NOT abort construction ---
 {
     package InitReturnsFalse;
     use Simple::Accessor qw{val};
 
     sub initialize {
         my ($self, %opts) = @_;
-        return 0;  # false
+        return 0;  # false — should be ignored
     }
 
     package main;
 
     my $obj = InitReturnsFalse->new(val => 42);
-    is( $obj, undef, 'initialize() returning false makes new() return undef' );
+    ok( defined $obj, 'initialize() returning false does not abort construction' );
+    is( $obj->val, 42, 'attributes still set when initialize() returns false' );
 }
 
 # --- _before_* returning false blocks set ---

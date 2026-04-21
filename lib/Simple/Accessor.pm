@@ -341,7 +341,7 @@ sub _add_new {
 
             foreach my $init ( 'build', 'initialize' ) {
                 if ( $self->can( $init ) ) {
-                    return unless $self->$init(%opts);
+                    $self->$init(%opts);
                     last;  # build takes precedence over initialize
                 }
             }
