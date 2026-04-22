@@ -193,6 +193,14 @@ my $_GUARD_KEY = "\0_sa_guard";
 # Structure: $_hook_cache->{$class}{"$attr\0$hook"} = $coderef | undef
 my $_hook_cache = {};
 
+# Attribute names that would shadow constructor lifecycle methods and cause
+# silent breakage.  'new' and 'with' are already caught by the can() check
+# in _add_accessors, but declaring them as attributes is still a mistake.
+my %_RESERVED = map { $_ => 1 } qw(
+    new with build initialize
+    _before_build _after_build _strict_constructor
+);
+
 sub import {
     my ( $class, @attr ) = @_;
 
@@ -201,6 +209,12 @@ sub import {
     $INFO = {} unless defined $INFO;
     $INFO->{$from} = {} unless defined $INFO->{$from};
     $INFO->{$from}->{'attributes'} ||= [];
+
+    # reject reserved lifecycle method names before installing anything
+    for my $att (@attr) {
+        die "$from: attribute '$att' conflicts with a Simple::Accessor lifecycle method\n"
+            if $_RESERVED{$att};
+    }
 
     _add_with($from);
     _add_new($from);
