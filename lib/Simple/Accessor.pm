@@ -134,6 +134,16 @@ You can also provide individual builders / initializers
         'red';
     }
 
+Some names are reserved and cannot be used as attributes, because an accessor
+would silently shadow the method the constructor or an accessor dispatches to.
+Declaring one dies at import time:
+
+    new with build initialize _before_build _after_build _strict_constructor
+
+In addition, any name matching C<_build_*>, C<_initialize_*>, C<_before_*>,
+C<_validate_*> or C<_after_*> is rejected, since those are the per-attribute
+builder and hook names described above.
+
 You can enable strict constructor mode to catch typos in attribute names:
 
     package MyClass;
@@ -202,6 +212,11 @@ my %_RESERVED = map { $_ => 1 } qw(
     _before_build _after_build _strict_constructor
 );
 
+# Open-ended family of per-attribute hook and builder names.  An attribute
+# named '_build_foo' would shadow the lazy builder for 'foo' and silently
+# feed its own (undef) value into it; same for _before_/_validate_/_after_.
+my $_RESERVED_RE = qr/\A_(?:build|initialize|before|validate|after)_/;
+
 sub import {
     my ( $class, @attr ) = @_;
 
@@ -211,10 +226,12 @@ sub import {
     $INFO->{$from} = {} unless defined $INFO->{$from};
     $INFO->{$from}->{'attributes'} ||= [];
 
-    # reject reserved lifecycle method names before installing anything
+    # reject reserved lifecycle / hook / builder names before installing anything
     for my $att (@attr) {
         die "$from: attribute '$att' conflicts with a Simple::Accessor lifecycle method\n"
             if $_RESERVED{$att};
+        die "$from: attribute '$att' conflicts with a Simple::Accessor hook/builder name\n"
+            if $att =~ $_RESERVED_RE;
     }
 
     _add_with($from);

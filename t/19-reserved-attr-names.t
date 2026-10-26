@@ -16,22 +16,44 @@ my @reserved = qw(
     _before_build _after_build _strict_constructor
 );
 
-for my $name (@reserved) {
-    my $pkg = "Reserved_" . ($name =~ s/\W/_/gr);
-    my $code = qq{
+my $pkg_counter = 0;
+
+sub try_import {
+    my (@attrs) = @_;
+
+    my $pkg = "Reserved::Pkg" . ++$pkg_counter;
+    my $list = join ' ', @attrs;
+    eval qq{
         package $pkg;
-        use Simple::Accessor ('$name');
+        use Simple::Accessor qw{$list};
         1;
     };
-    eval $code;
-    like $@, qr/conflicts with a Simple::Accessor lifecycle method/,
+
+    return ( $pkg, $@ );
+}
+
+for my $name (@reserved) {
+    my ( undef, $err ) = try_import($name);
+    like $err, qr/conflicts with a Simple::Accessor lifecycle method/,
         "attribute '$name' is rejected as reserved";
+}
+
+# The per-attribute hook / builder name families are reserved too: an
+# attribute named '_build_foo' would shadow the lazy builder for 'foo'.
+my @hook_names = qw(
+    _build_foo _initialize_foo _before_foo _validate_foo _after_foo
+);
+
+for my $name (@hook_names) {
+    my ( undef, $err ) = try_import($name);
+    like $err, qr/conflicts with a Simple::Accessor hook\/builder name/,
+        "attribute '$name' is rejected as a hook/builder name";
 }
 
 # Non-reserved names still work fine
 {
     package Normal::Attrs;
-    use Simple::Accessor qw{building initialized before_build};
+    use Simple::Accessor qw{building initialized before_build build_foo};
     # These are NOT reserved — they're close but distinct.
 }
 
@@ -39,11 +61,13 @@ my $obj = Normal::Attrs->new(
     building     => 'yes',
     initialized  => 1,
     before_build => 'ok',
+    build_foo    => 'fine',
 );
 
 is $obj->building,     'yes', 'near-reserved name "building" works';
 is $obj->initialized,  1,     'near-reserved name "initialized" works';
 is $obj->before_build, 'ok',  'near-reserved name "before_build" works (no leading _)';
+is $obj->build_foo,    'fine', 'near-reserved name "build_foo" works (no leading _)';
 
 # Reserved check applies even when mixed with valid attrs
 eval q{
