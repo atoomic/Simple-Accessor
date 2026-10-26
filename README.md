@@ -65,7 +65,26 @@ use Simple::Accessor qw{cherry apple};
 my $o = MyClass->new(foo => 1, bar => 2, cherry => 3, apple => 4);
 ```
 
-You can now call 'new' on your class, and create objects using these attributes
+Inheritance via `@ISA` is supported. The constructor recognizes attributes
+from parent classes, so you can subclass naturally:
+
+```perl
+package Vehicle;
+use Simple::Accessor qw{speed};
+sub _build_speed { 0 }
+
+package Car;
+use parent -norequire, 'Vehicle';
+use Simple::Accessor qw{brand};
+
+package main;
+
+my $car = Car->new(brand => 'Tesla', speed => 100);
+is $car->speed, 100;  # parent attr set via child constructor
+```
+
+You can now call 'new' on your class, and create objects using these attributes.
+The constructor accepts both a hash and a hashref:
 
 ```perl
 package main;
@@ -73,7 +92,7 @@ use MyClass;
 
 my $o = MyClass->new()
     or MyClass->new(bar => 42)
-    or MyClass->new(apple => 'fruit', cherry => 'fruit', banana => 'yummy');
+    or MyClass->new({ apple => 'fruit', cherry => 'fruit' });
 ```
 
 You can get / set any value using the accessor
@@ -141,7 +160,7 @@ MyClass->new(nmae => 'oops');
 This is opt-in and off by default for backward compatibility.
 
 You can even use a very basic but useful hook system.
-Any false value return by before or validate, will stop the setting process.
+Any false value returned by before, validate, or after will stop the setting process.
 The after hooks include a re-entrancy guard: if an `_after_*` hook triggers
 a setter that would re-enter the same attribute, the nested `_after_*` call
 is skipped to prevent infinite recursion.
@@ -180,4 +199,4 @@ You can contribute to this project on github https://github.com/atoomic/Simple-A
 
 # AI POLICY
 
-This project uses AI tools to assist development. Humans review and approve every change before it is merged. See [AI\_POLICY.md](AI_POLICY.md) for details.
+This project uses AI tools to assist development. Humans review and approve every change before it is merged. See \[AI\\\_POLICY.md\](AI\_POLICY.md) for details.

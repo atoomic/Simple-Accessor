@@ -464,6 +464,10 @@ sub _add_accessors {
 
 You can contribute to this project on github https://github.com/atoomic/Simple-Accessor
 
+=head1 AI POLICY
+
+This project uses AI tools to assist development. Humans review and approve every change before it is merged. See [AI\_POLICY.md](AI_POLICY.md) for details.
+
 =cut
 
 __END__
